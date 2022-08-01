@@ -35,10 +35,11 @@ func RedisClient(ctx context.Context) (*redis.Client, error) {
 		if err != nil {
 			panic(err)
 		}
+		fmt.Println("rediss://" + user + ":" + password + "@" + hots + ":" + port + "/0")
 
 		client = redis.NewClient(opt)
 	} else {
-
+		fmt.Println("local")
 		if redisURL := os.Getenv("REDISLOCAL_URL"); redisURL != "" {
 			addr = redisURL
 			password = ""
