@@ -26,8 +26,7 @@ func RedisClient(ctx context.Context) (*redis.Client, error) {
 	var user string
 	var client *redis.Client
 
-	if redisURL := os.Getenv("REDISCLOUD_URL"); redisURL != "" {
-		hots = os.Getenv("REDISCLOUD_HOST")
+	if hots = os.Getenv("REDISCLOUD_HOST"); hots != "" {
 		password = os.Getenv("REDISCLOUD_PASSWORD")
 		port = os.Getenv("REDISCLOUD_PORT")
 		user = os.Getenv("REDISCLOUD_USERNAME")
