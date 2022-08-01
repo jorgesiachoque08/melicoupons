@@ -34,7 +34,6 @@ func RedisClient(ctx context.Context) (*redis.Client, error) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("rediss://" + user + ":" + password + "@" + hots + ":" + port + "/0")
 
 		client = redis.NewClient(opt)
 	} else {
@@ -55,14 +54,13 @@ func RedisClient(ctx context.Context) (*redis.Client, error) {
 		client = redis.NewClient(options)
 	}
 
-	pong, err := client.Ping(ctx).Result()
+	_, err := client.Ping(ctx).Result()
 
 	if err != nil {
 		fmt.Println("error redis:" + err.Error())
 		return client, err
 
 	}
-	fmt.Println(pong)
 
 	return client, nil
 }
