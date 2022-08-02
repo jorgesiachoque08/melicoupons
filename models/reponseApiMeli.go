@@ -41,3 +41,8 @@ func (i *Item) GetPrice() int {
 func (i *Item) SetPrice(Price int) {
 	i.Price = Price
 }
+
+type ResponseItems struct {
+	Code int
+	Body Item
+}

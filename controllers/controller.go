@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"context"
 	"sort"
+	"strings"
 
 	"github.com/jorgesiachoque08/melicoupons/cache"
 	"github.com/jorgesiachoque08/melicoupons/models"
@@ -16,26 +18,33 @@ import (
  */
 
 func CalculateItemsMax(cr requests.CouponRequest) ([]string, int) {
-	itemsRedis := cache.ValidateKeysItems(cr.Item_ids)
-	items := make([]models.Item, len(cr.Item_ids))
+	items := make([]*models.Item, len(cr.Item_ids))
 	chanel := make(chan int)
-	item_ids := []string{}
 	itemIdsPending := []string{}
+	item_ids := []string{}
 	total := 0
+	ctx := context.Background()
+	redis, err := cache.RedisClient(ctx)
+	if err == nil {
+		defer redis.Client.Close()
+	}
+	itemsRedis := redis.ValidateKeysItems(cr.Item_ids, ctx)
 
 	for index, element := range cr.Item_ids {
 		if item, exist := itemsRedis[element]; exist {
-			items[index] = item
+			items[index] = &item
 		} else {
 			itemIdsPending = append(itemIdsPending, element)
-			items[index] = models.Item{element, 0}
-			// the concurrence begins
-			go GetItems(element, &items[index], chanel)
-		}
+			items[index] = &models.Item{element, 0}
 
+		}
 	}
-	//receives information from the channel, waiting for a response from GetItems
-	for i := 0; i < len(itemIdsPending); i++ {
+
+	if len(itemIdsPending) > 0 {
+		item_ids_strings := strings.Join(itemIdsPending[:], ",")
+		// the concurrence begins
+		go GetItems(item_ids_strings, items, chanel, ctx, redis)
+		// //receives information from the channel, waiting for a response from GetItems
 		_ = <-chanel
 	}
 
@@ -45,10 +54,9 @@ func CalculateItemsMax(cr requests.CouponRequest) ([]string, int) {
 			total = total + item.Price
 			item_ids = append(item_ids, item.Id)
 		}
-
 	}
 	if len(item_ids) > 0 {
-		cache.SetFavorites("favorites", item_ids)
+		redis.SetFavorites("favorites", item_ids, ctx)
 
 	}
 
@@ -60,17 +68,22 @@ func CalculateItemsMax(cr requests.CouponRequest) ([]string, int) {
 * @param id  id of the item to be consulted
 * @param item item to which the information returned by the MELI service will be assigned
 * @param chanel through which a value is sent when concurrency terminates
+* @param ctx
+* @param connect to redis
  */
 
-func GetItems(id string, item *models.Item, chanel chan int) {
-	itemService, err := services.GetItems(id)
+func GetItems(item_ids_strings string, items []*models.Item, chanel chan int, ctx context.Context, r cache.Redis) {
+	listemItemsService, err := services.GetItemsService(item_ids_strings)
 	if err == nil {
-		item.SetId(itemService.GetId())
-		item.SetPrice(itemService.GetPrice())
-		//stores the item in cache
-		cache.SetKeyItems(id, item)
+		for _, item := range items {
+			if itemService, exist := listemItemsService[item.Id]; exist {
+				item.SetId(itemService.Body.GetId())
+				item.SetPrice(itemService.Body.GetPrice())
+				//stores the item in cache
+				r.SetKeyItems(item.Id, item, ctx)
+			}
+		}
 	}
-
 	chanel <- 0
 }
 
@@ -80,7 +93,12 @@ func GetItems(id string, item *models.Item, chanel chan int) {
  */
 
 func GetTopFavorites() []map[string]int {
-	favorites := cache.GetFavorites("favorites")
+	ctx := context.Background()
+	redis, err := cache.RedisClient(ctx)
+	if err == nil {
+		defer redis.Client.Close()
+	}
+	favorites := redis.GetFavorites("favorites", ctx)
 	var length int
 	if len(favorites) >= 5 {
 		length = 5

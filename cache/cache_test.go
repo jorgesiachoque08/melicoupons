@@ -9,22 +9,24 @@ import (
 
 const item_id = "MCO507358090"
 
+var ctx = context.Background()
+
 func TestRunRedis(t *testing.T) {
-	ctx := context.Background()
-	client, err := RedisClient(ctx)
+	redis, err := RedisClient(ctx)
 	if err != nil {
 		t.Errorf("could not connect to redis")
 	}
-	defer client.Close()
+	defer redis.Client.Close()
 
 }
 
 func TestValidateKeysItems(t *testing.T) {
 	keys := []string{item_id}
-	itemsRedis := ValidateKeysItems(keys)
+	redis, _ := RedisClient(ctx)
+	itemsRedis := redis.ValidateKeysItems(keys, ctx)
 	if item, exist := itemsRedis[item_id]; !exist {
 		i := models.Item{item.Id, item.Price}
-		err := SetKeyItems(item_id, &i)
+		err := redis.SetKeyItems(item_id, &i, ctx)
 
 		if err != nil {
 			t.Errorf(err.Error())
@@ -36,7 +38,8 @@ func TestValidateKeysItems(t *testing.T) {
 
 func TestSetKeyItems(t *testing.T) {
 	i := models.Item{item_id, 14900}
-	err := SetKeyItems(item_id, &i)
+	redis, _ := RedisClient(ctx)
+	err := redis.SetKeyItems(item_id, &i, ctx)
 
 	if err != nil {
 		t.Errorf(err.Error())
@@ -46,7 +49,8 @@ func TestSetKeyItems(t *testing.T) {
 
 func TestSetFavorites(t *testing.T) {
 	item_ids := []string{item_id}
-	err := SetFavorites("favorites", item_ids)
+	redis, _ := RedisClient(ctx)
+	err := redis.SetFavorites("favorites", item_ids, ctx)
 
 	if err != nil {
 		t.Errorf(err.Error())
@@ -55,7 +59,8 @@ func TestSetFavorites(t *testing.T) {
 }
 
 func TestGetFavorites(t *testing.T) {
-	favorites := GetFavorites("favorites")
+	redis, _ := RedisClient(ctx)
+	favorites := redis.GetFavorites("favorites", ctx)
 	if len(favorites) == 0 {
 		t.Errorf("no favorites in cache")
 	}
